@@ -2,10 +2,13 @@ package com.loganalyzer.repository;
 
 import com.loganalyzer.entity.Log;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import java.util.List;
+public interface LogRepository extends JpaRepository<Log, Long>,
+        JpaSpecificationExecutor<Log> {
 
-public interface LogRepository extends JpaRepository<Log, Long> {
-    List<Log> findByLevel(String Level);
-    List<Log> findByService(String service);
+    // Optional: simple queries (not required if using Specifications)
+
+    // Case-insensitive level filter
+    long countByLevelIgnoreCase(String level);
 }

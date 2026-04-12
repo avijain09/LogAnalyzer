@@ -42,14 +42,14 @@ public class LogController {
         return logService.getLogById(id);
     }
 
-    // ✅ 4. Delete log (optional but useful)
+    // ✅ 4. Delete log
     @DeleteMapping("/{id}")
     public String deleteLog(@PathVariable Long id) {
         logService.deleteLog(id);
         return "Log deleted successfully";
     }
 
-    // ✅ 5. Count logs by level (analytics)
+    // ✅ 5. Count logs by level
     @GetMapping("/count")
     public Long countLogsByLevel(@RequestParam String level) {
         return logService.countLogsByLevel(level);
