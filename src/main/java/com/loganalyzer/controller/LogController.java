@@ -52,6 +52,17 @@ public class LogController {
     // ✅ 5. Count logs by level
     @GetMapping("/count")
     public Long countLogsByLevel(@RequestParam String level) {
+        System.out.println("here");
         return logService.countLogsByLevel(level);
     }
+
+//    @GetMapping
+//    public Page<Log> getLogsByFilter(
+//            @RequestParam(required = false) String service,
+//            @RequestParam(required = false) String level,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size
+//    ) {
+//        return logService.getLogByServiceNameAndLogLevel(service, level, page, size);
+//    }
 }

@@ -1,15 +1,20 @@
 package com.loganalyzer.service;
 
+import com.loganalyzer.dto.LogClusterDTO;
 import com.loganalyzer.dto.LogRequestDTO;
+import com.loganalyzer.dto.TopErrorDTO;
 import com.loganalyzer.entity.Log;
 import com.loganalyzer.repository.LogRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +26,45 @@ public class LogService {
     private final LogRepository logRepository;
 
     // ✅ 1. Ingest log
+    private String normalizeMessage(String message) {
+        return message
+                .replaceAll("\\d+", "")          // remove numbers
+                .replaceAll("[a-fA-F0-9]{8,}", "") // remove ids / hashes
+                .trim()
+                .toLowerCase();
+    }
+
+
+
+    private String generateHash(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hashBytes) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating hash", e);
+        }
+    }
+
+    private Log saveLog(Log log){
+        String normalizedMessage = normalizeMessage(log.getMessage());
+
+        String rawKey = log.getServiceName()
+                + "|" + log.getLogLevel()
+                + "|" + normalizedMessage;
+
+        String hashKey = generateHash(rawKey);
+
+        log.setHashKey(hashKey);
+
+        return logRepository.save(log);
+    }
+
     public void ingestLog(LogRequestDTO request) {
         Log log = new Log();
 
@@ -35,7 +79,7 @@ public class LogService {
                         : LocalDateTime.now()
         );
 
-        logRepository.save(log);
+        saveLog(log);
     }
 
     // ✅ 2. Get logs with filters + pagination
@@ -95,6 +139,45 @@ public class LogService {
 
     // ✅ 5. Count logs by level
     public Long countLogsByLevel(String level) {
-        return logRepository.countByLevelIgnoreCase(level);
+        return logRepository.countByLogLevelIgnoreCase(level);
     }
+
+    public List<TopErrorDTO> getTopErrors(int limit) {
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        return logRepository.findTopErrors(pageable)
+                .stream()
+                .map(obj -> new TopErrorDTO(
+                        (String) obj[0],
+                        (Long) obj[1]
+                ))
+                .toList();
+    }
+
+    public double getErrorRate(String service) {
+
+        long total = logRepository.countByServiceName(service);
+        long errors = logRepository.countByServiceNameAndLogLevelIgnoreCase(service, "ERROR");
+
+        if (total == 0) return 0;
+
+        return (double) errors / total;
+    }
+
+    public List<LogClusterDTO> getLogClusters() {
+        List<Object[]> results = logRepository.findLogClusters();
+
+        return results.stream()
+                .map(row -> new LogClusterDTO(
+                        (String) row[0],
+                        (Long) row[1]
+                ))
+                .toList();
+    }
+
+    public List<Log> getLogsByHashKey(String hashKey) {
+        return logRepository.findByHashKey(hashKey);
+    }
+
 }
